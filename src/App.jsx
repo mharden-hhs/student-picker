@@ -178,7 +178,7 @@ const LoginScreen = ({ onLogin }) => (
       {/* Icon badge */}
       <div style={{ width: 56, height: 56, background: C.teal, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.6rem", margin: "0 auto 20px" }}>🎵</div>
       <div style={{ fontSize: "0.65rem", letterSpacing: "0.2em", textTransform: "uppercase", color: C.muted, marginBottom: 8 }}>HHS Music</div>
-      <h1 style={{ fontSize: "4rem", fontWeight: 900, color: C.teal, margin: "0 0 12px", letterSpacing: "-0.02em" }}>Student Picker</h1>
+      <h1 style={{ fontSize: "2rem", fontWeight: 900, color: C.teal, margin: "0 0 12px", letterSpacing: "-0.02em" }}>Student Picker</h1>
       <p style={{ color: C.muted, fontSize: "0.92rem", lineHeight: 1.6, margin: "0 0 28px" }}>
         Sign in with your school Google account to access your class rosters.
       </p>
@@ -789,7 +789,7 @@ export default function App() {
                 {/* activeClass?.name — if activeClass is undefined, this returns undefined
                     instead of throwing an error. React renders nothing for undefined. */}
               </div>
-              <h1 style={{ fontSize: "1.7rem", fontWeight: 900, color: C.teal, margin: 0, letterSpacing: "-0.02em" }}>
+              <h1 style={{ fontSize: "4rem", fontWeight: 900, color: C.teal, margin: 0, letterSpacing: "-0.02em" }}>
                 Student Picker
               </h1>
             </div>
