@@ -746,8 +746,8 @@ export default function App() {
         .chip-remove { background: none; border: none; color: #adb5bd; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 2px; transition: color 0.12s; }
         .chip-remove:hover { color: #dc3545; }
 
-        /* The large name shown in the picker card */
-        .selected-name { font-weight: 900; text-align: center; line-height: 1.15; word-break: break-word; padding: 0 8px; font-size: clamp(1.5rem, 3.5vw, 2.4rem); }
+        /* The large name shown in the picker card — now full-width so we allow a much bigger font */
+        .selected-name { font-weight: 900; text-align: center; line-height: 1.15; word-break: break-word; padding: 0 8px; font-size: clamp(2.5rem, 7vw, 5rem); }
         /* clamp(min, preferred, max) makes the font scale with viewport width */
         .selected-name.animating { color: #b0c4ce; animation: shimmer 0.11s linear infinite; }
         .selected-name.final { color: ${C.amber}; animation: pop 0.28s ease forwards; }
@@ -794,145 +794,141 @@ export default function App() {
               </h1>
             </div>
 
-            {/* Two-column grid for the main panels */}
+            {/* ── PICKER CARD — full width, sits above the two-column grid ── */}
+            {/*
+              By pulling this Card out of the grid entirely, it stretches across
+              the full width of the main content area. The font size in
+              .selected-name uses clamp() so it scales up nicely with the
+              extra space without overflowing on smaller screens.
+            */}
+            <Card style={{ position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", gap: 18, minHeight: 260 }}>
+              <Confetti active={showConfetti} />
+
+              {/* Label + Reset Round button side by side at the top of the card */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+                <Label style={{ marginBottom: 0 }}>Selected Student</Label>
+                {/* Only show Reset Round once someone has been called */}
+                {called.length > 0 && (
+                  <button
+                    className="btn btn-sm"
+                    onClick={resetRound}
+                    style={{ border: `1px solid ${C.border}`, color: C.muted, fontSize: "0.75rem" }}
+                  >
+                    Reset Round
+                  </button>
+                )}
+              </div>
+
+              {/* Display area — vertically centered, fills remaining card height */}
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: "100%", minHeight: 140 }}>
+                {allDone ? (
+                  // State 1: every student has been called this round
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: "2.8rem" }}>🎉</div>
+                    <div style={{ fontWeight: 700, color: C.calledTxt, marginTop: 10, fontSize: "1.05rem" }}>Everyone's been called!</div>
+                    <div style={{ color: C.muted, fontSize: "0.82rem", marginTop: 4 }}>Reset the round to go again</div>
+                  </div>
+                ) : selected ? (
+                  // State 2: a name is selected or being shuffled through.
+                  // key={selected + String(animating)} forces React to re-mount this
+                  // element on each change, which restarts the CSS animation.
+                  <div key={selected + String(animating)} className={`selected-name ${animating ? "animating" : "final"}`}>
+                    {selected}
+                  </div>
+                ) : (
+                  // State 3: nothing picked yet
+                  <div style={{ color: C.muted, textAlign: "center", fontSize: "0.95rem" }}>
+                    {students.length === 0 ? "Add students to begin" : "Press Pick to start"}
+                  </div>
+                )}
+              </div>
+
+              {/* Pick button — capped at 320px wide so it doesn't stretch too far */}
+              <button
+                className="pick-btn"
+                onClick={pickStudent}
+                disabled={animating || remaining.length === 0}
+                style={{ maxWidth: 320 }}
+              >
+                {animating ? "Picking…" : "Pick Student"}
+              </button>
+            </Card>
+
+            {/* ── TWO-COLUMN GRID: roster left, add students + history right ── */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
 
-              {/* ── LEFT COLUMN ─────────────────────────────────────────────── */}
+              {/* ── LEFT COLUMN: Roster ─────────────────────────────────────── */}
+              <Card>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <Label style={{ marginBottom: 0 }}>Roster — {students.length} students</Label>
+                </div>
+
+                {/* Empty state */}
+                {students.length === 0 && (
+                  <div style={{ color: C.muted, textAlign: "center", padding: "18px 0", fontSize: "0.85rem" }}>No students yet</div>
+                )}
+
+                {/* Progress bar */}
+                {students.length > 0 && (
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.72rem", color: C.muted, marginBottom: 5 }}>
+                      <span>{called.length} called</span>
+                      <span>{remaining.length} remaining</span>
+                    </div>
+                    <div style={{ height: 6, background: C.pendingBg, borderRadius: 99, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${progress}%`, background: C.amber, borderRadius: 99, transition: "width 0.4s ease" }} />
+                    </div>
+                  </div>
+                )}
+
+                {/* Student chips */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 280, overflowY: "auto" }}>
+                  {students.map(s => (
+                    <div key={s} className={`student-chip ${called.includes(s) ? "chip-called" : "chip-pending"}`}>
+                      {called.includes(s) && <span style={{ fontSize: "0.68rem" }}>✓</span>}
+                      <span style={{ flex: 1 }}>{s}</span>
+                      <button className="chip-remove" onClick={() => removeStudent(s)}>×</button>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              {/* ── RIGHT COLUMN: Add Students + Call History ───────────────── */}
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
                 {/* Add Students card */}
                 <Card>
                   <Label>Add Students to {activeClass?.name}</Label>
                   <textarea
-                    ref={inputRef}        // attaches the DOM reference for focus()
-                    value={input}         // controlled input — value is driven by state
-                    onChange={e => setInput(e.target.value)}  // update state on each keystroke
+                    ref={inputRef}
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
                     onKeyDown={e => {
-                      // Submit on Enter (but allow Shift+Enter for new lines)
                       if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault(); // prevent the default newline
+                        e.preventDefault();
                         addStudent();
                       }
                     }}
                     placeholder={"One name per line,\nor comma separated"}
-                    className="form-control form-control-sm mb-2"  // Bootstrap form classes
+                    className="form-control form-control-sm mb-2"
                     style={{ resize: "none", height: 92, fontFamily: "monospace", fontSize: "0.82rem", borderColor: C.border }}
                   />
                   <button className="pick-btn" onClick={addStudent}>+ Add</button>
                 </Card>
 
-                {/* Roster card */}
-                <Card>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                    <Label style={{ marginBottom: 0 }}>Roster — {students.length} students</Label>
-                    {/* Only show Reset Round if at least one student has been called */}
-                    {called.length > 0 && (
-                      <button
-                        className="btn btn-sm"
-                        onClick={resetRound}
-                        style={{ border: `1px solid ${C.border}`, color: C.muted, fontSize: "0.75rem" }}
-                      >
-                        Reset Round
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Empty state message */}
-                  {students.length === 0 && (
-                    <div style={{ color: C.muted, textAlign: "center", padding: "18px 0", fontSize: "0.85rem" }}>No students yet</div>
-                  )}
-
-                  {/* Progress bar — only shown when the roster has students */}
-                  {students.length > 0 && (
-                    <div style={{ marginBottom: 12 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.72rem", color: C.muted, marginBottom: 5 }}>
-                        <span>{called.length} called</span>
-                        <span>{remaining.length} remaining</span>
-                      </div>
-                      {/* The inner div's width is set to the "progress" percentage via inline style */}
-                      <div style={{ height: 6, background: C.pendingBg, borderRadius: 99, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${progress}%`, background: C.amber, borderRadius: 99, transition: "width 0.4s ease" }} />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Student list — a chip for each student */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 240, overflowY: "auto" }}>
-                    {students.map(s => (
-                      // Template literal classname: applies chip-called or chip-pending
-                      // based on whether the student is in the called array
-                      <div key={s} className={`student-chip ${called.includes(s) ? "chip-called" : "chip-pending"}`}>
-                        {/* The && renders the checkmark only for called students */}
-                        {called.includes(s) && <span style={{ fontSize: "0.68rem" }}>✓</span>}
-                        <span style={{ flex: 1 }}>{s}</span>
-                        {/* Arrow function wraps removeStudent so it receives the name as an argument */}
-                        <button className="chip-remove" onClick={() => removeStudent(s)}>×</button>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              </div>
-
-              {/* ── RIGHT COLUMN ────────────────────────────────────────────── */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-
-                {/* Picker card */}
-                <Card style={{ minHeight: 300, position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
-                  {/* Confetti renders absolutely inside this card (position: relative on Card) */}
-                  <Confetti active={showConfetti} />
-                  <Label style={{ alignSelf: "flex-start" }}>Selected Student</Label>
-
-                  {/* Display area — shows one of three states */}
-                  <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: "100%", minHeight: 160 }}>
-                    {allDone ? (
-                      // State 1: everyone has been called
-                      <div style={{ textAlign: "center" }}>
-                        <div style={{ fontSize: "2.2rem" }}>🎉</div>
-                        <div style={{ fontWeight: 700, color: C.calledTxt, marginTop: 10, fontSize: "0.95rem" }}>Everyone's been called!</div>
-                        <div style={{ color: C.muted, fontSize: "0.78rem", marginTop: 4 }}>Reset the round to go again</div>
-                      </div>
-                    ) : selected ? (
-                      // State 2: a student is selected (or being shuffled through)
-                      // key={selected + String(animating)} forces React to re-mount this element
-                      // each time a new name is picked, restarting the CSS animation.
-                      <div key={selected + String(animating)} className={`selected-name ${animating ? "animating" : "final"}`}>
-                        {selected}
-                      </div>
-                    ) : (
-                      // State 3: nothing selected yet — show a prompt
-                      <div style={{ color: C.muted, textAlign: "center", fontSize: "0.88rem" }}>
-                        {students.length === 0 ? "Add students to begin" : "Press Pick to start"}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Pick button — disabled while animating or when no one is left */}
-                  <button
-                    className="pick-btn"
-                    onClick={pickStudent}
-                    disabled={animating || remaining.length === 0}
-                  >
-                    {animating ? "Picking…" : "Pick Student"}
-                  </button>
-                </Card>
-
-                {/* Call history card — only rendered if at least one student has been called */}
+                {/* Call history card — only shown once picks have been made */}
                 {called.length > 0 && (
                   <Card>
                     <Label>Called This Round</Label>
                     <div style={{ display: "flex", flexDirection: "column", gap: 2, maxHeight: 210, overflowY: "auto" }}>
                       {/*
-                        [...called] creates a shallow copy of the array before reversing,
-                        because .reverse() mutates the original array in place — something
-                        we never want to do to React state directly.
+                        [...called] copies the array before reversing so we don't
+                        mutate the original state array — .reverse() works in place.
                       */}
                       {[...called].reverse().map((s, i) => (
                         <div key={s} style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 2px", borderBottom: `1px solid ${C.pendingBg}` }}>
-                          {/* i is the index in the reversed array; called.length - i gives the original order number */}
                           <span style={{ fontSize: "0.65rem", color: "#b0c4ce", width: 18, textAlign: "right", flexShrink: 0 }}>{called.length - i}</span>
-                          {/* The most recent pick (i === 0) gets amber color and bold weight */}
                           <span style={{ fontSize: "0.88rem", color: i === 0 ? C.amber : C.text, fontWeight: i === 0 ? 700 : 400, flex: 1 }}>{s}</span>
-                          {/* "latest" badge — only shown for the most recent pick */}
                           {i === 0 && (
                             <span style={{ fontSize: "0.6rem", background: C.tealLight, color: C.teal, borderRadius: 5, padding: "2px 7px", fontWeight: 700, flexShrink: 0 }}>latest</span>
                           )}
