@@ -178,7 +178,7 @@ const LoginScreen = ({ onLogin }) => (
       {/* Icon badge */}
       <div style={{ width: 56, height: 56, background: C.teal, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.6rem", margin: "0 auto 20px" }}>🎵</div>
       <div style={{ fontSize: "0.65rem", letterSpacing: "0.2em", textTransform: "uppercase", color: C.muted, marginBottom: 8 }}>HHS Music</div>
-      <h1 style={{ fontSize: "1.9rem", fontWeight: 900, color: C.teal, margin: "0 0 12px", letterSpacing: "-0.02em" }}>Student Picker</h1>
+      <h1 style={{ fontSize: "1.9rem", fontWeight: 900, color: C.teal, margin: "0 0 12px", letterSpacing: "-0.02em" }}>Student Selection Tool</h1>
       <p style={{ color: C.muted, fontSize: "0.92rem", lineHeight: 1.6, margin: "0 0 28px" }}>
         Sign in with your school Google account to access your class rosters.
       </p>
@@ -242,7 +242,8 @@ function Sidebar({ classes, activeId, onSelect, onAdd, onDelete, onSignOut, user
       {/* App name / branding at the top of the sidebar */}
       <div style={{ paddingBottom: 16, marginBottom: 8, borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
         <div style={{ fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(255,255,255,0.45)", marginBottom: 4 }}>HHS Music</div>
-        <div style={{ fontSize: "1.1rem", fontWeight: 900, color: C.white, letterSpacing: "-0.01em" }}>Student Picker</div>
+        <div style={{ fontSize: "1.1rem", fontWeight: 900, color: C.white, letterSpacing: "-0.01em" }}>Student Selection Tool</div>
+        <div style={{ fontSize: "1.1rem", fontWeight: 100, color: C.white, letterSpacing: "-0.01em" }}>Class Menu</div>
       </div>
 
       {/* "CLASSES" label */}
@@ -863,8 +864,8 @@ export default function App() {
                 {/* activeClass?.name — if activeClass is undefined, this returns undefined
                     instead of throwing an error. React renders nothing for undefined. */}
               </div>
-              <h1 style={{ fontSize: "1.7rem", fontWeight: 900, color: C.teal, margin: 0, letterSpacing: "-0.02em" }}>
-                Student Picker
+              <h1 style={{ fontSize: "4rem", fontWeight: 900, color: C.teal, margin: 0, letterSpacing: "-0.02em" }}>
+                Student Selection Tool
               </h1>
             </div>
 
@@ -1045,7 +1046,7 @@ export default function App() {
                     }}
                     placeholder={"One name per line,\nor comma separated"}
                     className="form-control form-control-sm mb-2"
-                    style={{ resize: "none", height: 92, fontFamily: "monospace", fontSize: "0.82rem", borderColor: C.border }}
+                    style={{ resize: "none", height: 92, fontFamily: "lato", fontSize: "0.82rem", borderColor: C.border }}
                   />
                   <button className="pick-btn" onClick={addStudent}>+ Add</button>
                 </Card>
@@ -1067,9 +1068,9 @@ export default function App() {
                         addPrompt();
                       }
                     }}
-                    placeholder={"One item per line for secondary wheel selection"}
+                    placeholder={"One item per line for secondary prompt selection"}
                     className="form-control form-control-sm mb-2"
-                    style={{ resize: "none", height: 80, fontFamily: "monospace", fontSize: "0.82rem", borderColor: C.border }}
+                    style={{ resize: "none", height: 80, fontFamily: "lato", fontSize: "0.82rem", borderColor: C.border }}
                   />
                   <button
                     className="pick-btn"
