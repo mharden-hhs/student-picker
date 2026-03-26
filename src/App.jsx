@@ -178,7 +178,7 @@ const LoginScreen = ({ onLogin }) => (
       {/* Icon badge */}
       <div style={{ width: 56, height: 56, background: C.teal, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.6rem", margin: "0 auto 20px" }}>🎵</div>
       <div style={{ fontSize: "0.65rem", letterSpacing: "0.2em", textTransform: "uppercase", color: C.muted, marginBottom: 8 }}>HHS Music</div>
-      <h1 style={{ fontSize: "2rem", fontWeight: 900, color: C.teal, margin: "0 0 12px", letterSpacing: "-0.02em" }}>Student Picker</h1>
+      <h1 style={{ fontSize: "1.9rem", fontWeight: 900, color: C.teal, margin: "0 0 12px", letterSpacing: "-0.02em" }}>Student Picker</h1>
       <p style={{ color: C.muted, fontSize: "0.92rem", lineHeight: 1.6, margin: "0 0 28px" }}>
         Sign in with your school Google account to access your class rosters.
       </p>
@@ -427,6 +427,17 @@ export default function App() {
   // loaded: true once the Firestore data has finished loading for the current user.
   const [loaded, setLoaded] = useState(false);
 
+  // promptInput: the current text in the "Add Prompts" textarea.
+  const [promptInput, setPromptInput] = useState("");
+
+  // promptAnimating: true while the prompt slot-machine shuffle is running.
+  const [promptAnimating, setPromptAnimating] = useState(false);
+
+  // currentPrompt: the prompt item currently displayed (null until first spin).
+  // This lives in local state (not Firestore) — prompts don't need to persist
+  // between sessions, only the list of available prompts does.
+  const [currentPrompt, setCurrentPrompt] = useState(null);
+
   // inputRef: a reference to the textarea DOM element.
   // useRef(null) starts as null; React fills it in when the element mounts.
   // We use it to call inputRef.current.focus() after adding students.
@@ -465,10 +476,16 @@ export default function App() {
       // First-time user: no classes exist yet. Create a default "Period 1" class.
       if (!cls.length) {
         const id = `c${Date.now()}`; // Date.now() gives a unique timestamp-based id
-        const def = { id, name: "Period 1", students: [], called: [], selected: null };
+        // prompts: the list of items the secondary randomizer draws from (e.g. years, topics)
+        const def = { id, name: "Period 1", students: [], called: [], selected: null, prompts: [] };
         cls = [def];
         await saveClass(user.uid, id, def); // persist it to Firestore immediately
       }
+
+      // Backfill prompts: [] for any class saved before this feature existed.
+      // { prompts: [], ...c } means "start with prompts:[], then overwrite with c's fields"
+      // so if c already has prompts, that value wins; if it doesn't, [] is used.
+      cls = cls.map((c) => ({ prompts: [], ...c }));
 
       // Build the classData lookup map from the array.
       // forEach iterates the array; for each class c, we store it under its id key.
@@ -533,6 +550,10 @@ export default function App() {
   // This is shorthand for: const students = active.students; etc.
   const { students, called, selected } = active;
 
+  // prompts: the list of prompt items for this class (e.g. ["2020s", "Baroque", ...])
+  // We use || [] as a fallback for classes loaded before prompts were added.
+  const prompts = active.prompts || [];
+
   // remaining: students who haven't been called yet this round.
   // .filter() returns a new array containing only items where the test returns true.
   const remaining = students.filter((s) => !called.includes(s));
@@ -563,13 +584,13 @@ export default function App() {
   // ── CLASS MANAGEMENT FUNCTIONS ───────────────────────────────────────────────
 
   // switchClass: selects a different class from the sidebar.
-  // Also resets the allDone flag and clears the text input.
-  const switchClass = (id) => { setActiveId(id); setAllDone(false); setInput(""); };
+  // Also resets the allDone flag, clears the text input, and clears the prompt display.
+  const switchClass = (id) => { setActiveId(id); setAllDone(false); setInput(""); setCurrentPrompt(null); };
 
   // addClass: creates a new empty class, saves it to Firestore, and switches to it.
   const addClass = async (name) => {
     const id = `c${Date.now()}`;  // timestamp-based unique id
-    const doc2 = { id, name, students: [], called: [], selected: null };
+    const doc2 = { id, name, students: [], called: [], selected: null, prompts: [] };
     setClasses((p) => [...p, { id, name }]);    // append to sidebar list
     setClassData((p) => ({ ...p, [id]: doc2 })); // add to data map
     await saveClass(user.uid, id, doc2);          // persist to Firestore
@@ -671,9 +692,59 @@ export default function App() {
 
   // resetRound: clears all call history and the selected name for the active class.
   // The roster itself is unchanged — students aren't removed, just "uncalled."
+  // Also clears the current prompt so the display is fresh for the next round.
   const resetRound = () => {
     updateActive({ called: [], selected: null });
     setAllDone(false);
+    setCurrentPrompt(null);
+  };
+
+
+  // ── PROMPT MANAGEMENT FUNCTIONS ──────────────────────────────────────────────
+  //
+  // Prompts are stored as a simple string array inside each class's Firestore document,
+  // just like students. The same updateActive helper keeps the data in sync.
+
+  // addPrompt: parses the prompt textarea and appends new items to the active class.
+  // Uses the same split/trim/deduplicate pattern as addStudent.
+  const addPrompt = () => {
+    const items = promptInput.split(/[\n,]+/).map((p) => p.trim()).filter(Boolean);
+    if (!items.length) return;
+    const prompts = active.prompts || [];
+    // Only add items that aren't already in the list
+    updateActive({ prompts: [...prompts, ...items.filter((p) => !prompts.includes(p))] });
+    setPromptInput("");
+  };
+
+  // removePrompt: removes a single prompt item from the active class's list.
+  const removePrompt = (item) => {
+    updateActive({ prompts: (active.prompts || []).filter((p) => p !== item) });
+    // If the removed item is currently displayed, clear it
+    if (currentPrompt === item) setCurrentPrompt(null);
+  };
+
+  // spinPrompt: runs the same slot-machine shuffle as pickStudent, but for prompts.
+  // Only callable after a student has been picked (selected is not null).
+  // Picks randomly from the full prompts list (prompts can repeat across students).
+  const spinPrompt = () => {
+    const prompts = active.prompts || [];
+    if (!prompts.length || promptAnimating) return;
+    setPromptAnimating(true);
+
+    let count = 0;
+    const total = 10; // slightly fewer ticks than student picker for a snappier feel
+
+    const interval = setInterval(() => {
+      // Flash a random prompt on each tick
+      setCurrentPrompt(prompts[Math.floor(Math.random() * prompts.length)]);
+      count++;
+      if (count >= total) {
+        clearInterval(interval);
+        // Lock in the final randomly chosen prompt
+        setCurrentPrompt(prompts[Math.floor(Math.random() * prompts.length)]);
+        setPromptAnimating(false);
+      }
+    }, 55 + count * 9); // same slowing-down pattern as the student picker
   };
 
 
@@ -728,6 +799,9 @@ export default function App() {
 
         /* Shimmer animation — fades in and out while the shuffle is running */
         @keyframes shimmer { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+        /* Slide-up animation for the prompt result appearing */
+        @keyframes slideUp { 0% { transform: translateY(8px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
 
         /* The main Pick Student button */
         .pick-btn {
@@ -789,7 +863,7 @@ export default function App() {
                 {/* activeClass?.name — if activeClass is undefined, this returns undefined
                     instead of throwing an error. React renders nothing for undefined. */}
               </div>
-              <h1 style={{ fontSize: "4rem", fontWeight: 900, color: C.teal, margin: 0, letterSpacing: "-0.02em" }}>
+              <h1 style={{ fontSize: "1.7rem", fontWeight: 900, color: C.teal, margin: 0, letterSpacing: "-0.02em" }}>
                 Student Picker
               </h1>
             </div>
@@ -852,6 +926,66 @@ export default function App() {
               >
                 {animating ? "Picking…" : "Pick Student"}
               </button>
+
+              {/*
+                PROMPT SECTION — only visible once a student has been picked AND
+                the class has at least one prompt in its list.
+                selected && !animating: a student is locked in (not mid-shuffle)
+                prompts.length > 0: there's something to spin
+              */}
+              {selected && !animating && prompts.length > 0 && (
+                <div style={{ width: "100%", borderTop: `1px solid ${C.border}`, paddingTop: 16, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+
+                  {/* Show the current prompt result, or a placeholder if not yet spun */}
+                  <div style={{ minHeight: 36, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {currentPrompt ? (
+                      // key={currentPrompt + String(promptAnimating)} restarts the animation
+                      // each time a new prompt lands, just like we do for student names.
+                      <div
+                        key={currentPrompt + String(promptAnimating)}
+                        style={{
+                          fontWeight: 700,
+                          fontSize: "clamp(1rem, 2.5vw, 1.5rem)",
+                          textAlign: "center",
+                          color: promptAnimating ? C.muted : C.tealMid,
+                          animation: promptAnimating ? "shimmer 0.11s linear infinite" : "slideUp 0.22s ease forwards",
+                          padding: "6px 16px",
+                          background: promptAnimating ? "transparent" : C.tealLight,
+                          borderRadius: 8,
+                        }}
+                      >
+                        {currentPrompt}
+                      </div>
+                    ) : (
+                      <div style={{ color: C.muted, fontSize: "0.85rem" }}>Spin to assign a prompt</div>
+                    )}
+                  </div>
+
+                  {/* Spin Prompt button — teal style to visually distinguish from the amber Pick button */}
+                  <button
+                    onClick={spinPrompt}
+                    disabled={promptAnimating}
+                    style={{
+                      background: promptAnimating ? C.muted : C.tealMid,
+                      color: C.white,
+                      border: "none",
+                      borderRadius: 8,
+                      fontWeight: 700,
+                      fontSize: "0.88rem",
+                      padding: "9px 24px",
+                      cursor: promptAnimating ? "not-allowed" : "pointer",
+                      fontFamily: "'Lato', sans-serif",
+                      transition: "background 0.15s",
+                      maxWidth: 220,
+                      width: "100%",
+                    }}
+                    onMouseEnter={e => { if (!promptAnimating) e.currentTarget.style.background = C.teal; }}
+                    onMouseLeave={e => { if (!promptAnimating) e.currentTarget.style.background = C.tealMid; }}
+                  >
+                    {promptAnimating ? "Spinning…" : currentPrompt ? "Spin Again" : "🎲 Spin Prompt"}
+                  </button>
+                </div>
+              )}
             </Card>
 
             {/* ── TWO-COLUMN GRID: roster left, add students + history right ── */}
@@ -914,6 +1048,56 @@ export default function App() {
                     style={{ resize: "none", height: 92, fontFamily: "monospace", fontSize: "0.82rem", borderColor: C.border }}
                   />
                   <button className="pick-btn" onClick={addStudent}>+ Add</button>
+                </Card>
+
+                {/* Prompt List card — manage the items this class's secondary randomizer draws from */}
+                <Card>
+                  <Label>Prompts for {activeClass?.name}</Label>
+
+                  {/*
+                    The prompt textarea works exactly like the student textarea.
+                    Teachers can paste a list of years, topics, composers — anything.
+                  */}
+                  <textarea
+                    value={promptInput}
+                    onChange={e => setPromptInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        addPrompt();
+                      }
+                    }}
+                    placeholder={"One item per line, e.g.:\n1920s\nBaroque\nJazz era"}
+                    className="form-control form-control-sm mb-2"
+                    style={{ resize: "none", height: 80, fontFamily: "monospace", fontSize: "0.82rem", borderColor: C.border }}
+                  />
+                  <button
+                    className="pick-btn"
+                    onClick={addPrompt}
+                    style={{ marginBottom: prompts.length ? 12 : 0 }}
+                  >
+                    + Add
+                  </button>
+
+                  {/* Current prompt list — shown as removable chips, same as the student roster */}
+                  {prompts.length > 0 && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3, maxHeight: 180, overflowY: "auto" }}>
+                      {prompts.map((p) => (
+                        // Each prompt is a chip matching the "pending" student chip style
+                        <div key={p} className="student-chip chip-pending">
+                          <span style={{ flex: 1 }}>{p}</span>
+                          <button className="chip-remove" onClick={() => removePrompt(p)}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Empty state — shown when no prompts have been added yet */}
+                  {prompts.length === 0 && (
+                    <div style={{ color: C.muted, fontSize: "0.78rem", textAlign: "center", paddingTop: 6 }}>
+                      No prompts yet — add some above and a Spin button will appear after each pick.
+                    </div>
+                  )}
                 </Card>
 
                 {/* Call history card — only shown once picks have been made */}
