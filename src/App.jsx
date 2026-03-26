@@ -1052,7 +1052,7 @@ export default function App() {
 
                 {/* Prompt List card — manage the items this class's secondary randomizer draws from */}
                 <Card>
-                  <Label>Prompts for {activeClass?.name}</Label>
+                  <Label>Randomizer Prompts for {activeClass?.name}</Label>
 
                   {/*
                     The prompt textarea works exactly like the student textarea.
@@ -1067,7 +1067,7 @@ export default function App() {
                         addPrompt();
                       }
                     }}
-                    placeholder={"One item per line, e.g.:\n1920s\nBaroque\nJazz era"}
+                    placeholder={"One item per line for secondary wheel selection"}
                     className="form-control form-control-sm mb-2"
                     style={{ resize: "none", height: 80, fontFamily: "monospace", fontSize: "0.82rem", borderColor: C.border }}
                   />
