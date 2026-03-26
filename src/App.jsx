@@ -176,7 +176,7 @@ const LoginScreen = ({ onLogin }) => (
     {/* Centered login card */}
     <div style={{ background: C.white, borderRadius: 16, boxShadow: "0 4px 24px rgba(26,58,74,0.12)", padding: "48px 40px", textAlign: "center", maxWidth: 380, width: "100%" }}>
       {/* Icon badge */}
-      <div style={{ width: 56, height: 56, background: C.teal, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.6rem", margin: "0 auto 20px" }}>🎵</div>
+      <div style={{ width: 56, height: 56, background: C.teal, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.6rem", margin: "0 auto 20px" }}>🎲</div>
       <div style={{ fontSize: "0.65rem", letterSpacing: "0.2em", textTransform: "uppercase", color: C.muted, marginBottom: 8 }}>HHS Music</div>
       <h1 style={{ fontSize: "1.9rem", fontWeight: 900, color: C.teal, margin: "0 0 12px", letterSpacing: "-0.02em" }}>Student Selection Tool</h1>
       <p style={{ color: C.muted, fontSize: "0.92rem", lineHeight: 1.6, margin: "0 0 28px" }}>
